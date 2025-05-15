@@ -1,243 +1,47 @@
-// script.js
+// script.js (Showing key changes and new functions)
 
-// --- Configuration & Global Variables ---
-const LOCAL_STORAGE_KEY_LINKS = 'interactiveLinkManagerData';
-const LOCAL_STORAGE_KEY_SORT = 'interactiveLinkManagerSortCriteria';
-let links = []; // Holds the array of link objects
-let currentSortCriteria = 'dateAdded_desc'; // Default sort order
+// ... (Keep existing top constants, DOM variable declarations, save/load functions for links and sort criteria) ...
+// ... (Keep logToPage, handleRemoveLink, sortLinks, setupAddLinkButtonListener) ...
 
-// DOM element variables - will be assigned in DOMContentLoaded
-let linkListElement;
-let clickLogElement;
-let showAddLinkDialogBtn;
-let sortCriteriaSelect;
+// --- NEW: Date Time Helper Functions ---
+/**
+ * Converts an ISO string (UTC) to the 'YYYY-MM-DDTHH:MM' format
+ * required by <input type="datetime-local">, adjusted for the local timezone.
+ */
+function getLocalDateTimePickerValue(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString); // Date object is in local time based on ISO string
 
-// --- Core Functions ---
+    // Create a new date object that is offset to "pretend" it's UTC
+    // for the purpose of getting YYYY-MM-DDTHH:MM that represents local time.
+    // This handles the timezone offset correctly for the input field.
+    const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+    return localDate.toISOString().slice(0, 16); // Extracts YYYY-MM-DDTHH:MM
+}
 
 /**
- * Parses a relative time string and returns a Date object if successful.
- * Supports units: hours (hr), minutes (min), days.
- * Examples: "10 hours from now", "1.5 days later", "30 min hence"
+ * Converts a 'YYYY-MM-DDTHH:MM' string from <input type="datetime-local">
+ * (which is local time) back to a UTC ISO string for storage.
  */
-function parseRelativeTimeAndCalcFutureDate(inputString) {
-    if (!inputString) return null;
-
-    const cleanedInput = inputString.toLowerCase().trim();
-    // Regex: captures value, unit, and suffix. Case-insensitive.
-    const regex = /^(\d+(\.\d+)?)\s+(hour|hr|minute|min|day)s?\s+(?:from\s+now|later|hence)$/i;
-    const match = cleanedInput.match(regex);
-
-    if (match) {
-        const value = parseFloat(match[1]);
-        let unit = match[3]; // e.g., "hour", "hr", "minute", "min", "day"
-
-        // Normalize unit
-        if (unit === 'hr') unit = 'hour';
-        if (unit === 'min') unit = 'minute';
-
-        let futureDate = new Date(); // Start with current date/time for calculation
-
-        switch (unit) {
-            case 'hour':
-                futureDate.setTime(futureDate.getTime() + value * 60 * 60 * 1000);
-                break;
-            case 'minute':
-                futureDate.setTime(futureDate.getTime() + value * 60 * 1000);
-                break;
-            case 'day':
-                futureDate.setTime(futureDate.getTime() + value * 24 * 60 * 60 * 1000);
-                break;
-            default:
-                console.warn("parseRelativeTimeAndCalcFutureDate: Unknown unit matched - ", unit);
-                return null; // Should not be reached if regex is correct
-        }
-        console.log(`Parsed "${inputString}" to: ${futureDate.toISOString()}`);
-        return futureDate;
-    }
-    console.log(`Could not parse relative time: "${inputString}"`);
-    return null; // No match
+function getISOStringFromDateTimePickerValue(localDateTimeString) {
+    if (!localDateTimeString) return null;
+    // The input string 'YYYY-MM-DDTHH:MM' is treated as local time by new Date()
+    const date = new Date(localDateTimeString);
+    if (isNaN(date.getTime())) return null; // Invalid date string
+    return date.toISOString();
 }
 
-// --- Local Storage Functions ---
-function saveLinksToLocalStorage() {
-    try {
-        localStorage.setItem(LOCAL_STORAGE_KEY_LINKS, JSON.stringify(links));
-        // console.log("Links saved to Local Storage.");
-    } catch (e) {
-        console.error("Could not save links to Local Storage:", e);
-    }
-}
+// --- MODIFIED: parseRelativeTimeAndCalcFutureDate (no changes needed here from before) ---
+// ... (Keep the existing parseRelativeTimeAndCalcFutureDate function) ...
 
-function saveSortCriteriaToLocalStorage() {
-    try {
-        localStorage.setItem(LOCAL_STORAGE_KEY_SORT, currentSortCriteria);
-        // console.log("Sort criteria saved:", currentSortCriteria);
-    } catch (e) {
-        console.error("Could not save sort criteria to Local Storage:", e);
-    }
-}
-
-function getDefaultLinks() {
-    const now = Date.now();
-    console.log("Using default links.");
-    return [
-        {
-            text: "Google Search (Default)",
-            url: "https://www.google.com",
-            scheduledTimeDisplay: "Tomorrow AM", // User-friendly display string
-            // scheduledDateTimeActual: null, // No actual calculation for this default string
-            dateAdded: now - 200000 // ~3 mins ago
-        },
-        {
-            text: "Wikipedia (Default)",
-            url: "https://www.wikipedia.org",
-            dateAdded: now - 100000 // ~1.5 mins ago
-        },
-        {
-            text: "Developer Mozilla (Default)",
-            url: "https://developer.mozilla.org",
-            dateAdded: now // Just now
-        }
-    ];
-}
-
-function loadLinksFromLocalStorage() {
-    console.log("Attempting to load links from Local Storage. Key:", LOCAL_STORAGE_KEY_LINKS);
-    try {
-        const storedLinks = localStorage.getItem(LOCAL_STORAGE_KEY_LINKS);
-        if (storedLinks) {
-            let parsedLinks = JSON.parse(storedLinks);
-            if (Array.isArray(parsedLinks)) {
-                // Data migration/ensure properties for all links
-                parsedLinks = parsedLinks.map(link => {
-                    const migratedLink = {
-                        ...link,
-                        dateAdded: link.dateAdded === undefined ? 0 : link.dateAdded // Default old links to timestamp 0
-                    };
-
-                    // One-time migration attempt for old `scheduledTime` string field
-                    if (migratedLink.scheduledTime && migratedLink.scheduledDateTimeActual === undefined) {
-                        migratedLink.scheduledTimeDisplay = migratedLink.scheduledTime; // Preserve original string
-                        const calculatedDate = parseRelativeTimeAndCalcFutureDate(migratedLink.scheduledTime);
-                        if (calculatedDate) {
-                            migratedLink.scheduledDateTimeActual = calculatedDate.toISOString();
-                        }
-                        delete migratedLink.scheduledTime; // Clean up the old, ambiguous field
-                    }
-                    return migratedLink;
-                });
-                console.log("Parsed and migrated links from Local Storage:", parsedLinks);
-                return parsedLinks;
-            } else {
-                console.warn("Stored links data is not an array. Falling back to defaults.");
-            }
-        } else {
-            console.log("No links data found in Local Storage. Falling back to defaults.");
-        }
-    } catch (e) {
-        console.error("Error processing links from Local Storage:", e, "Falling back to defaults.");
-    }
-    return getDefaultLinks();
-}
-
-function loadSortCriteriaFromLocalStorage() {
-    const storedSortCriteria = localStorage.getItem(LOCAL_STORAGE_KEY_SORT);
-    if (storedSortCriteria) {
-        console.log("Loaded sort criteria from Local Storage:", storedSortCriteria);
-        return storedSortCriteria;
-    }
-    console.log("No sort criteria in Local Storage, using default:", currentSortCriteria);
-    return currentSortCriteria; // Default if nothing is stored
-}
-
-
-// --- Sorting Function ---
-function sortLinks() {
-    console.log("Sorting links by:", currentSortCriteria);
-    links.sort((a, b) => {
-        switch (currentSortCriteria) {
-            case 'dateAdded_desc': // Newest first
-                return (b.dateAdded || 0) - (a.dateAdded || 0);
-            case 'dateAdded_asc': // Oldest first
-                return (a.dateAdded || 0) - (b.dateAdded || 0);
-            case 'text_asc':
-                return a.text.localeCompare(b.text);
-            case 'text_desc':
-                return b.text.localeCompare(a.text);
-            case 'scheduledTime_asc': // Sort by actual calculated date if available
-                // Items with actual dates come first, sorted chronologically
-                // Then items with only display strings, sorted alphabetically
-                // Then items with no schedule info
-                if (a.scheduledDateTimeActual && !b.scheduledDateTimeActual) return -1;
-                if (!a.scheduledDateTimeActual && b.scheduledDateTimeActual) return 1;
-                if (a.scheduledDateTimeActual && b.scheduledDateTimeActual) {
-                    return new Date(a.scheduledDateTimeActual) - new Date(b.scheduledDateTimeActual);
-                }
-                // Fallback for items without calculated dates (compare by display string)
-                if (a.scheduledTimeDisplay && !b.scheduledTimeDisplay) return -1;
-                if (!a.scheduledTimeDisplay && b.scheduledTimeDisplay) return 1;
-                if (a.scheduledTimeDisplay && b.scheduledTimeDisplay) {
-                    return a.scheduledTimeDisplay.localeCompare(b.scheduledTimeDisplay);
-                }
-                return 0; // Both have no schedule info or are considered equal
-            case 'scheduledTime_desc':
-                if (a.scheduledDateTimeActual && !b.scheduledDateTimeActual) return -1; // a (with date) still comes "before" b (no date) in a descending sort of dates
-                if (!a.scheduledDateTimeActual && b.scheduledDateTimeActual) return 1;
-                if (a.scheduledDateTimeActual && b.scheduledDateTimeActual) {
-                    return new Date(b.scheduledDateTimeActual) - new Date(a.scheduledDateTimeActual);
-                }
-                // Fallback
-                if (a.scheduledTimeDisplay && !b.scheduledTimeDisplay) return -1;
-                if (!a.scheduledTimeDisplay && b.scheduledTimeDisplay) return 1;
-                if (a.scheduledTimeDisplay && b.scheduledTimeDisplay) {
-                    return b.scheduledTimeDisplay.localeCompare(a.scheduledTimeDisplay);
-                }
-                return 0;
-            default:
-                return 0;
-        }
-    });
-    saveSortCriteriaToLocalStorage(); // Save the current sort preference
-}
-
-// --- UI Helper Functions ---
-function logToPage(message) {
-    const now = new Date();
-    const timestamp = now.toLocaleString([], {dateStyle: 'short', timeStyle: 'medium'});
-    const logEntry = document.createElement('p');
-    logEntry.classList.add('log-entry');
-    logEntry.textContent = `[${timestamp}] ${message}`;
-    if (clickLogElement && clickLogElement.firstChild) {
-        clickLogElement.insertBefore(logEntry, clickLogElement.firstChild);
-    } else if (clickLogElement) {
-        clickLogElement.appendChild(logEntry);
-    }
-}
-
-// --- DOM Manipulation & Event Handlers ---
-function handleRemoveLink(linkToRemove) {
-    if (confirm(`Are you sure you want to remove the link "${linkToRemove.text}"? This cannot be undone.`)) {
-        const index = links.findIndex(link => link.url === linkToRemove.url && link.text === linkToRemove.text);
-        if (index > -1) {
-            links.splice(index, 1);
-            saveLinksToLocalStorage();
-            // The list is already sorted; removing an item doesn't change sort order of others
-            renderLinks(); // Just re-render
-            logToPage(`Link "${linkToRemove.text}" removed.`);
-        } else {
-            logToPage(`Error: Could not find link "${linkToRemove.text}" in the array to remove.`);
-            console.error(`Error finding link to remove:`, linkToRemove, `Current links:`, links);
-        }
-    }
-}
-
+// --- MODIFIED: handleLinkClick (Main change is in how the prompt/schedule update is handled) ---
 function handleLinkClick(event, linkObject) {
     event.preventDefault();
     const url = linkObject.url;
     const linkText = linkObject.text;
     let baseActivityMessage = `Clicked "${linkText}" (${url}).`;
     let detailedReminderMessage = "";
-    let linksModified = false;
+    let linksModified = false; // Flag to track if actual data changed
 
     if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url} now?`)) {
         detailedReminderMessage = ` User chose to visit immediately. Navigating...`;
@@ -245,62 +49,160 @@ function handleLinkClick(event, linkObject) {
         window.location.href = url;
     } else {
         detailedReminderMessage = ` User chose NOT to visit immediately.`;
+        // The prompt is still an option for quick text or relative time input
+        // We'll also make the displayed date itself clickable for a calendar.
         const currentScheduledTimeForPrompt = linkObject.scheduledTimeDisplay ||
                                            (linkObject.scheduledDateTimeActual ? new Date(linkObject.scheduledDateTimeActual).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : "");
 
         const visitLaterTimeInput = prompt(
-            `Set/update reminder for "${linkText}":\n(e.g., "2.5 hours from now", "1 day later", or a specific date like "May 16, 10:00 AM").\nLeave blank to clear reminder.`,
+            `Set/update reminder for "${linkText}":\n(e.g., "2 hours from now", or click the displayed date for a calendar).\nLeave blank to clear reminder.`,
             currentScheduledTimeForPrompt
         );
 
-        if (visitLaterTimeInput !== null) { // User clicked OK (input can be an empty string)
+        if (visitLaterTimeInput !== null) { // User clicked OK (input can be empty)
             const trimmedInput = visitLaterTimeInput.trim();
-            if (trimmedInput === "") { // User explicitly cleared the input
+            if (trimmedInput === "") { // Cleared via prompt
                 if (linkObject.scheduledTimeDisplay || linkObject.scheduledDateTimeActual) {
                     delete linkObject.scheduledTimeDisplay;
                     delete linkObject.scheduledDateTimeActual;
                     linksModified = true;
                 }
-                detailedReminderMessage += ` Reminder cleared.`;
+                detailedReminderMessage += ` Reminder cleared via prompt.`;
             } else {
                 const calculatedDate = parseRelativeTimeAndCalcFutureDate(trimmedInput);
                 if (calculatedDate) {
-                    linkObject.scheduledDateTimeActual = calculatedDate.toISOString();
-                    linkObject.scheduledTimeDisplay = trimmedInput; // Store original successful input
-                    linksModified = true;
-                    detailedReminderMessage += ` Reminder set to: ${new Date(linkObject.scheduledDateTimeActual).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})} (from input "${trimmedInput}").`;
-                } else {
-                    // If parsing as relative time fails, store the input as a general display string
-                    linkObject.scheduledTimeDisplay = trimmedInput;
-                    // Clear any previously calculated actual date if the new input isn't parsable
-                    if(linkObject.scheduledDateTimeActual) {
-                        delete linkObject.scheduledDateTimeActual;
+                    const newIso = calculatedDate.toISOString();
+                    if (linkObject.scheduledDateTimeActual !== newIso || linkObject.scheduledTimeDisplay !== trimmedInput) {
+                        linkObject.scheduledDateTimeActual = newIso;
+                        linkObject.scheduledTimeDisplay = trimmedInput;
+                        linksModified = true;
                     }
-                    linksModified = true;
-                    detailedReminderMessage += ` Reminder text set to: "${trimmedInput}" (Note: not a parseable relative time).`;
+                    detailedReminderMessage += ` Reminder set via prompt to: ${new Date(linkObject.scheduledDateTimeActual).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} (from input "${trimmedInput}").`;
+                } else {
+                    if (linkObject.scheduledTimeDisplay !== trimmedInput || linkObject.scheduledDateTimeActual) {
+                        linkObject.scheduledTimeDisplay = trimmedInput;
+                        delete linkObject.scheduledDateTimeActual; // No longer a valid calculated date
+                        linksModified = true;
+                    }
+                    detailedReminderMessage += ` Reminder text set via prompt to: "${trimmedInput}" (not a parseable relative time).`;
                 }
             }
-        } else { // User pressed cancel
-            detailedReminderMessage += ` User declined to set/update a reminder.`;
+        } else { // User pressed cancel on prompt
+            detailedReminderMessage += ` User declined to update reminder via prompt.`;
         }
 
+        logToPage(baseActivityMessage + detailedReminderMessage);
         if (linksModified) {
             saveLinksToLocalStorage();
+            sortLinks();
         }
-        logToPage(baseActivityMessage + detailedReminderMessage);
-        sortLinks(); // Re-sort if scheduled time (actual or display) changed
-        renderLinks();
+        renderLinks(); // Re-render to reflect changes or if prompt was cancelled
     }
 }
 
+// --- NEW: Function to make the schedule display editable with a datepicker ---
+function makeScheduleEditable(linkObject, displaySpanElement) {
+    const originalDateTimeActual = linkObject.scheduledDateTimeActual;
+    const originalTimeDisplay = linkObject.scheduledTimeDisplay;
+
+    displaySpanElement.style.display = 'none'; // Hide the text span
+
+    const input = document.createElement('input');
+    input.type = 'datetime-local';
+    input.className = 'schedule-datetime-input';
+    input.value = getLocalDateTimePickerValue(linkObject.scheduledDateTimeActual);
+
+    let hasChanged = false; // Flag to track if input value actually changed
+
+    // Function to finalize editing
+    const finalizeEdit = (saveChanges) => {
+        // Remove input from DOM - renderLinks will rebuild the span
+        if (input.parentNode) {
+            input.parentNode.removeChild(input);
+        }
+        // Restore span visibility - renderLinks will handle this by rebuilding
+        // displaySpanElement.style.display = '';
+
+        if (saveChanges) {
+            const newPickerValue = input.value; // Value from datetime-local input
+            if (newPickerValue) {
+                const newIsoString = getISOStringFromDateTimePickerValue(newPickerValue);
+                if (newIsoString) { // Valid date from picker
+                    if (linkObject.scheduledDateTimeActual !== newIsoString) {
+                        linkObject.scheduledDateTimeActual = newIsoString;
+                        // Update display string to reflect the picked date accurately
+                        linkObject.scheduledTimeDisplay = new Date(newIsoString).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                        hasChanged = true; // Mark as changed for saving
+                        logToPage(`Reminder for "${linkObject.text}" updated via calendar to: ${linkObject.scheduledTimeDisplay}`);
+                    }
+                } else { // Should not happen if browser enforces datetime-local format
+                    logToPage(`Invalid date from calendar for "${linkObject.text}". Reverting.`);
+                    // Revert to original if input was somehow invalid
+                    linkObject.scheduledDateTimeActual = originalDateTimeActual;
+                    linkObject.scheduledTimeDisplay = originalTimeDisplay;
+                }
+            } else { // Input was cleared
+                if (linkObject.scheduledDateTimeActual || linkObject.scheduledTimeDisplay) {
+                    delete linkObject.scheduledDateTimeActual;
+                    delete linkObject.scheduledTimeDisplay;
+                    hasChanged = true;
+                    logToPage(`Reminder for "${linkObject.text}" cleared via calendar.`);
+                }
+            }
+        } else { // Cancelled (e.g., by Escape key) - revert to original values
+            linkObject.scheduledDateTimeActual = originalDateTimeActual;
+            linkObject.scheduledTimeDisplay = originalTimeDisplay;
+            logToPage(`Calendar edit for "${linkObject.text}" cancelled.`);
+        }
+
+        if (hasChanged) {
+            saveLinksToLocalStorage();
+            sortLinks();
+        }
+        renderLinks(); // Always re-render to show updated span or remove input
+    };
+
+    input.addEventListener('change', () => {
+        // The 'change' event fires when the value is committed (e.g., date picked, or focus lost after typing)
+        // We can use this to mark that a modification is intended.
+        // The actual saving will happen on blur or Enter.
+    });
+
+    input.addEventListener('blur', () => {
+        // If the input is still in the document when it blurs, finalize.
+        // This handles clicking away.
+        if (document.body.contains(input)) {
+            finalizeEdit(true); // Assume blur means accept changes
+        }
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            finalizeEdit(true); // Commit changes
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            finalizeEdit(false); // Cancel changes
+        }
+    });
+
+    // Insert the input field right after the (now hidden) display span
+    displaySpanElement.parentNode.insertBefore(input, displaySpanElement.nextSibling);
+    input.focus();
+    // try { input.showPicker(); } catch (e) { /* some browsers might not support this */ }
+}
+
+
+// --- MODIFIED: renderLinks (Make scheduled time clickable) ---
 function renderLinks() {
     if (!linkListElement) {
         console.error("renderLinks called before linkListElement is defined.");
         return;
     }
-    linkListElement.innerHTML = ''; // Clear existing list items
+    linkListElement.innerHTML = '';
 
     if (!links || links.length === 0) {
+        // ... (empty list message as before) ...
         const emptyLi = document.createElement('li');
         emptyLi.textContent = 'No links have been added yet. Click "Add New Link" below!';
         emptyLi.style.justifyContent = 'center';
@@ -309,64 +211,85 @@ function renderLinks() {
         return;
     }
 
-    // The 'links' array is assumed to be already sorted by sortLinks()
     links.forEach(linkObj => {
         const listItem = document.createElement('li');
-
+        // ... (linkTextContainer and anchorTag setup as before) ...
         const linkTextContainer = document.createElement('div');
         linkTextContainer.className = 'link-text-container';
         const anchorTag = document.createElement('a');
         anchorTag.href = linkObj.url;
         anchorTag.textContent = linkObj.text;
         anchorTag.title = `Visit ${linkObj.text}`;
-        anchorTag.addEventListener('click', (event) => handleLinkClick(event, linkObj));
+        anchorTag.addEventListener('click', (event) => handleLinkClick(event, linkObj)); // This is for the link itself
         linkTextContainer.appendChild(anchorTag);
         listItem.appendChild(linkTextContainer);
 
-        // Display logic for scheduled time
+        // Display logic for scheduled time (NOW CLICKABLE)
+        const scheduleContainer = document.createElement('span'); // A container for either text or input
+        listItem.appendChild(scheduleContainer); // Add to DOM early
+
+        let displayString = "";
+        let canBeMadeEditable = true;
+
         if (linkObj.scheduledDateTimeActual) {
-            const scheduleDisplay = document.createElement('span');
-            scheduleDisplay.className = 'scheduled-time';
-            const formattedDate = new Date(linkObj.scheduledDateTimeActual).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-            scheduleDisplay.textContent = `Visit: ${formattedDate}`;
-            // Show original relative input as a tooltip if it was successfully parsed
+            displayString = `Visit: ${new Date(linkObj.scheduledDateTimeActual).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
             if (linkObj.scheduledTimeDisplay && parseRelativeTimeAndCalcFutureDate(linkObj.scheduledTimeDisplay)) {
-                scheduleDisplay.title = `Original input: "${linkObj.scheduledTimeDisplay}"`;
+                scheduleContainer.title = `Original input: "${linkObj.scheduledTimeDisplay}"`;
+            } else if (linkObj.scheduledTimeDisplay) {
+                 scheduleContainer.title = `Set as: "${linkObj.scheduledTimeDisplay}"`;
             }
-            listItem.appendChild(scheduleDisplay);
-        } else if (linkObj.scheduledTimeDisplay) { // Fallback to display string if no actual calculated date
-            const scheduleDisplay = document.createElement('span');
-            scheduleDisplay.className = 'scheduled-time';
-            scheduleDisplay.textContent = `Visit: ${linkObj.scheduledTimeDisplay}`;
-            listItem.appendChild(scheduleDisplay);
+        } else if (linkObj.scheduledTimeDisplay) {
+            displayString = `Visit: ${linkObj.scheduledTimeDisplay}`;
+        } else {
+            displayString = "Set Reminder"; // Prompt to set a reminder
+            scheduleContainer.style.opacity = "0.7"; // Make it look less prominent
+            canBeMadeEditable = true; // Allow clicking "Set Reminder" to open datepicker
         }
 
+        if (displayString) {
+            scheduleContainer.className = 'scheduled-time'; // Apply styling
+            scheduleContainer.textContent = displayString;
+            if(canBeMadeEditable){
+                scheduleContainer.style.cursor = 'pointer';
+                scheduleContainer.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent link click if schedule is part of it
+                    makeScheduleEditable(linkObj, scheduleContainer);
+                });
+            }
+        }
+
+
         const removeButton = document.createElement('button');
+        // ... (removeButton setup as before) ...
         removeButton.textContent = 'Remove';
         removeButton.className = 'remove-btn';
         removeButton.title = `Remove link: ${linkObj.text}`;
         removeButton.addEventListener('click', (event) => {
-            event.stopPropagation(); // Prevent event bubbling
+            event.stopPropagation();
             handleRemoveLink(linkObj);
         });
         listItem.appendChild(removeButton);
+
 
         linkListElement.appendChild(listItem);
     });
 }
 
+
+// --- Event listener for "Add New Link" button (no changes needed here) ---
+// ... (Keep existing setupAddLinkButtonListener function, ensure it sets dateAdded) ...
 function setupAddLinkButtonListener() {
     if (showAddLinkDialogBtn) {
         showAddLinkDialogBtn.addEventListener('click', () => {
             const newLinkText = prompt("Enter the text/name for the new link:");
-            if (newLinkText === null) return; // User cancelled
+            if (newLinkText === null) return; 
             if (newLinkText.trim() === "") {
                 alert("Link text cannot be empty. Link not added.");
                 return;
             }
 
             const newLinkUrl = prompt("Enter the full URL for the new link (e.g., https://www.example.com):");
-            if (newLinkUrl === null) return; // User cancelled
+            if (newLinkUrl === null) return;
             if (newLinkUrl.trim() === "") {
                 alert("Link URL cannot be empty. Link not added.");
                 return;
@@ -377,20 +300,18 @@ function setupAddLinkButtonListener() {
                 if (confirm(`The URL "${cleanUrl}" doesn't start with http:// or https://.\nShould we add "https://"?`)) {
                     cleanUrl = 'https://' + cleanUrl;
                 } else {
-                    alert("Invalid URL format. Link not added. Please include http:// or https://.");
-                    return;
+                    alert("Invalid URL format. Link not added."); return;
                 }
             }
 
             const newLink = {
                 text: newLinkText.trim(),
                 url: cleanUrl,
-                dateAdded: Date.now(), // Add timestamp when link is created
-                // scheduledTimeDisplay and scheduledDateTimeActual will be undefined initially
+                dateAdded: Date.now()
             };
             links.push(newLink);
             saveLinksToLocalStorage();
-            sortLinks(); // Sort after adding (important if default sort is by dateAdded)
+            sortLinks(); 
             renderLinks();
             logToPage(`New link "${newLink.text}" added.`);
         });
@@ -399,9 +320,9 @@ function setupAddLinkButtonListener() {
     }
 }
 
-// --- Initial Setup ---
+// --- Initial Setup (DOMContentLoaded) ---
+// ... (Keep existing DOMContentLoaded, ensure it calls loadLinks, loadSortCriteria, sortLinks, renderLinks, setupAddLinkButtonListener) ...
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize DOM element variables
     linkListElement = document.getElementById('linkList');
     clickLogElement = document.getElementById('clickLog');
     showAddLinkDialogBtn = document.getElementById('showAddLinkDialogBtn');
@@ -409,35 +330,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!linkListElement || !clickLogElement || !showAddLinkDialogBtn || !sortCriteriaSelect) {
         console.error("One or more critical DOM elements could not be found. App may not function correctly.");
-        // Display a user-facing error message on the page itself
         const errorDiv = document.createElement('div');
         errorDiv.textContent = "Error: Critical page elements missing. Please check HTML structure.";
         errorDiv.style.color = 'red';
         errorDiv.style.fontWeight = 'bold';
         errorDiv.style.padding = '20px';
         errorDiv.style.textAlign = 'center';
-        document.body.prepend(errorDiv); // Prepend to make it visible
-        return; // Stop further execution if critical elements are missing
+        document.body.prepend(errorDiv);
+        return; 
     }
 
     console.log("DOMContentLoaded: Event fired. DOM elements selected.");
 
-    links = loadLinksFromLocalStorage(); // Load links from Local Storage or get defaults
-    currentSortCriteria = loadSortCriteriaFromLocalStorage(); // Load preferred sort order
+    links = loadLinksFromLocalStorage(); 
+    currentSortCriteria = loadSortCriteriaFromLocalStorage();
 
     if (sortCriteriaSelect) {
-        sortCriteriaSelect.value = currentSortCriteria; // Set dropdown to match loaded/default criteria
+        sortCriteriaSelect.value = currentSortCriteria; 
         sortCriteriaSelect.addEventListener('change', (event) => {
             currentSortCriteria = event.target.value;
-            sortLinks(); // Sort with new criteria
-            renderLinks(); // Re-render the sorted list
+            sortLinks(); 
+            renderLinks(); 
         });
     }
 
-    sortLinks(); // Apply initial sort based on loaded/default criteria
-    renderLinks(); // Display initial links
-    setupAddLinkButtonListener(); // Setup listener for the "Add New Link" button
+    sortLinks(); 
+    renderLinks(); 
+    setupAddLinkButtonListener(); 
 
-    logToPage("Link manager initialized. Data and sort preference loaded. Current time: " + new Date().toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}));
+    logToPage("Link manager initialized. Current time: " + new Date().toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}));
     console.log("DOMContentLoaded: Initialization complete. Initial links array:", JSON.parse(JSON.stringify(links)));
 });
