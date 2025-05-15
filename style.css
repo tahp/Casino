@@ -1,120 +1,178 @@
+/* style.css */
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    margin: 20px;
-    background-color: #f8f9fa;
-    color: #212529;
+    margin: 20px auto; /* Centering page content with auto margins */
+    max-width: 900px; /* Max width for better readability on large screens */
+    background-color: #f8f9fa; /* Light grey background */
+    color: #212529; /* Dark text for readability */
     line-height: 1.6;
+    padding: 0 15px; /* Padding on the sides of the body */
 }
 
 h1 {
-    color: #0056b3;
+    color: #0056b3; /* Dark blue for main heading */
     text-align: center;
+    margin-top: 20px;
     margin-bottom: 30px;
 }
 
 h3 {
-    color: #0056b3;
+    color: #0056b3; /* Consistent heading color */
+    margin-top: 30px; /* Space above subheadings */
+    margin-bottom: 15px;
+    border-bottom: 1px solid #dee2e6; /* Subtle underline for subheadings */
+    padding-bottom: 5px;
 }
 
+/* Sort Controls Container */
+#controlsContainer {
+    margin-bottom: 20px;
+    padding: 10px 15px;
+    background-color: #e9ecef; /* Light background for controls section */
+    border-radius: 6px;
+    text-align: right; /* Aligns the sort dropdown to the right */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+#controlsContainer label {
+    margin-right: 8px;
+    font-weight: 500;
+    color: #495057; /* Slightly darker label text */
+}
+
+#sortCriteria {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ced4da; /* Standard border */
+    font-size: 0.9em;
+    background-color: #fff; /* White background for select dropdown */
+}
+
+/* Link List Styling */
 #linkList {
     list-style: none;
     padding: 0;
+    margin: 0;
 }
 
 #linkList li {
     margin-bottom: 12px;
-    background-color: #fff;
+    background-color: #fff; /* White background for individual list items */
     padding: 12px 15px;
     border-radius: 6px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.07); /* Subtle shadow for depth */
     display: flex;
-    align-items: center;
-    flex-wrap: wrap; /* Important for responsiveness */
+    align-items: center; /* Vertically align items within the list item */
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+    gap: 10px; /* Space between flex items if they wrap */
+}
+
+/* For the "Status: ..." messages during debugging or "Loading/No links" */
+#linkList li[style*="justify-content: center"],
+#linkList li:only-child:not(:has(a)) { /* Targets the empty/status list item more reliably */
+    font-style: italic;
+    color: #6c757d; /* Muted text color */
+    display: block; /* Override flex for single centered items */
+    text-align: center;
+    padding: 20px;
 }
 
 .link-text-container {
-    flex-grow: 1; /* Allows it to take available space */
+    flex-grow: 1; /* Allows link text to take up available horizontal space */
     margin-right: 10px; /* Space before schedule time or remove button */
-    overflow: hidden; /* Prevents long text from breaking layout badly */
-    text-overflow: ellipsis; /* Show ... for very long link text */
+    overflow: hidden; /* Prevent long text from breaking layout */
+    min-width: 150px; /* Ensure it has some minimum width to prevent being too squished */
 }
 
 #linkList a {
     text-decoration: none;
-    color: #007bff;
-    font-weight: 500; /* Slightly bolder */
+    color: #007bff; /* Bootstrap primary blue for links */
+    font-weight: 500; /* Slightly bolder than normal text */
     cursor: pointer;
-    word-break: break-all; /* Break long URLs/text if necessary */
+    word-break: break-all; /* Break long URLs/text to prevent horizontal overflow */
 }
 
 #linkList a:hover {
     text-decoration: underline;
-    color: #0056b3;
+    color: #0056b3; /* Darker blue on hover for feedback */
 }
 
+/* Scheduled Time Display & Input */
 .scheduled-time {
-    font-size: 0.8em;
-    color: #495057;
+    font-size: 0.85em;
+    color: #495057; /* Dark grey text for scheduled time */
     font-style: italic;
-    background-color: #e9ecef;
-    padding: 3px 8px;
+    background-color: #f0f2f5; /* Slightly different light grey background */
+    padding: 4px 8px;
     border-radius: 4px;
-    white-space: nowrap;
+    white-space: nowrap; /* Keep schedule time on one line if possible */
     margin-right: 10px; /* Space before remove button */
-    flex-shrink: 0; /* Prevent it from shrinking too much */
+    flex-shrink: 0; /* Prevent it from shrinking too much on smaller screens */
+    cursor: pointer; /* Indicates it's clickable for the datepicker */
+    transition: background-color 0.2s ease;
+}
+.scheduled-time:hover {
+    background-color: #dfe3e8; /* Darker on hover */
 }
 
+/* Specific style for "Set Reminder" text to make it look more like a prompt */
+.scheduled-time[style*="opacity: 0.6"] {
+    background-color: transparent;
+    border: 1px dashed #adb5bd; /* Dashed border for "Set Reminder" */
+    padding: 3px 7px; /* Adjust padding to align with border */
+    color: #6c757d;
+}
+.scheduled-time[style*="opacity: 0.6"]:hover {
+    border-color: #495057;
+    color: #343a40;
+}
+
+
+.schedule-datetime-input {
+    padding: 3px 6px;
+    font-size: 0.85em;
+    border: 1px solid #ced4da; /* Consistent border with other inputs */
+    border-radius: 4px;
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-right: 10px; /* Consistent margin */
+    /* Consider max-width if it can get too wide */
+    /* max-width: 220px; */
+}
+
+/* Remove Button Styling */
 .remove-btn {
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 0.8em;
     color: white;
-    background-color: #dc3545; /* Red for remove */
+    background-color: #dc3545; /* Bootstrap danger red */
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    margin-left: auto; /* Pushes button to the far right */
-    flex-shrink: 0; /* Prevent button from shrinking */
+    margin-left: auto; /* Pushes button to the far right of the flex container */
+    flex-shrink: 0;
     transition: background-color 0.2s ease-in-out;
 }
 
 .remove-btn:hover {
-    background-color: #c82333;
+    background-color: #c82333; /* Darker red on hover */
 }
 
-.log-entry {
-    font-size: 0.9em;
-    color: #333;
-    margin-top: 8px;
-    padding: 8px 12px;
-    background-color: #eef2f7; /* Lighter blueish tint for logs */
-    border-left: 4px solid #6c757d; /* Neutral log border */
-    border-radius: 3px;
-}
-
-#clickLogContainer {
-    margin-top: 30px;
-    border-top: 2px solid #0056b3;
-    padding-top: 15px;
-}
-
-#clickLogContainer h3 {
-    margin-top: 0;
-}
-
+/* Add New Link Button Container */
 #addLinkContainer {
     margin-top: 25px;
     padding: 20px;
-    background-color: #fff; /* Consistent with list items */
+    background-color: #f8f9fa; /* Consistent with body or slightly different like #e9ecef */
     border-radius: 6px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.07);
     text-align: center;
+    border-top: 1px solid #dee2e6; /* Subtle separator from list above */
 }
 
 #showAddLinkDialogBtn {
     padding: 12px 25px;
     font-size: 1em;
     color: white;
-    background-color: #28a745; /* Green for add */
+    background-color: #28a745; /* Bootstrap success green */
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -122,15 +180,37 @@ h3 {
 }
 
 #showAddLinkDialogBtn:hover {
-    background-color: #218838;
+    background-color: #218838; /* Darker green on hover */
 }
-/* ... existing styles ... */
 
-.schedule-datetime-input {
-    padding: 3px 6px;
-    font-size: 0.85em; /* Match .scheduled-time font-size a bit */
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    /* You might want to adjust width or other properties if needed */
-    /* Example: width: auto; max-width: 200px; */
+/* Activity Log Styling */
+#clickLogContainer {
+    margin-top: 40px; /* More space above logs */
+    border-top: 2px solid #0056b3; /* Prominent top border for log section */
+    padding-top: 20px;
 }
+
+.log-entry {
+    font-size: 0.9em;
+    color: #343a40; /* Darker text for better log readability */
+    margin-bottom: 8px; /* Spacing between individual log entries */
+    padding: 10px 15px;
+    background-color: #eef2f7; /* Very light blueish tint for log entries */
+    border-left: 4px solid #6c757d; /* Neutral grey border on the left */
+    border-radius: 4px;
+    word-break: break-word; /* Allow long log messages to wrap nicely */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Subtle shadow for log entries */
+}
+
+/* On-page error div for critical errors (from JS, styles applied via JS) */
+/* You can define a class if you prefer to add it via JS instead of inline styles */
+/* .critical-error-display {
+    color: red;
+    font-weight: bold;
+    padding: 20px;
+    text-align: center;
+    border: 2px solid red;
+    background-color: #ffe0e0;
+    margin-bottom: 20px;
+} */
+
