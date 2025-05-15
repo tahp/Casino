@@ -3,35 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Manager</title>
+    <title>Link Manager with Reminders</title>
     <style>
         body {
             font-family: sans-serif;
             margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1, h3 {
+            color: #0056b3;
         }
         #linkList {
             list-style: none;
             padding: 0;
         }
         #linkList li {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         #linkList a {
             text-decoration: none;
-            color: blue;
+            color: #007bff;
+            font-weight: bold;
             cursor: pointer;
         }
         #linkList a:hover {
             text-decoration: underline;
+            color: #0056b3;
         }
         .log-entry {
             font-size: 0.9em;
             color: #555;
-            margin-top: 5px;
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #e9ecef;
+            border-left: 3px solid #007bff;
+            border-radius: 3px;
         }
         #clickLogContainer {
             margin-top: 30px;
-            border-top: 1px solid #ccc;
+            border-top: 2px solid #0056b3;
             padding-top: 15px;
         }
         #clickLogContainer h3 {
@@ -46,7 +61,7 @@
         </ul>
 
     <div id="clickLogContainer">
-        <h3>Click Log:</h3>
+        <h3>Click Log & Reminders:</h3>
         <div id="clickLog">
             </div>
     </div>
@@ -54,10 +69,10 @@
     <script>
         // --- Configuration: Define your links here ---
         const links = [
-            { text: "Google", url: "https://www.google.com" },
-            { text: "Wikipedia", url: "https://www.wikipedia.org" },
-            { text: "Example Domain", url: "https://www.example.com" }
-            // Add more links here if needed
+            { text: "Google Search", url: "https://www.google.com" },
+            { text: "Wikipedia Encyclopedia", url: "https://www.wikipedia.org" },
+            { text: "Example Domain Info", url: "https://www.example.com" },
+            { text: "Developer Mozilla", url: "https://developer.mozilla.org" }
         ];
 
         const linkListElement = document.getElementById('linkList');
@@ -67,38 +82,68 @@
         function handleLinkClick(event, url, linkText) {
             event.preventDefault(); // Prevent the default link navigation
 
-            // 1. Log when the link was clicked
             const now = new Date();
-            const timestamp = now.toLocaleString(); // More readable date/time
-            const logMessage = `Clicked on "${linkText}" (${url}) at ${timestamp}`;
-            console.log(logMessage);
+            const timestamp = now.toLocaleString(); // e.g., "5/14/2025, 8:00:00 PM"
+            let logMessage = `Clicked "${linkText}" (${url}) at ${timestamp}.`;
 
-            // Display log on the page
-            const logEntry = document.createElement('p');
-            logEntry.classList.add('log-entry');
-            logEntry.textContent = logMessage;
-            clickLogElement.insertBefore(logEntry, clickLogElement.firstChild); // Add to top of log
+            // Initial console log for the click itself
+            console.log(`User clicked on "${linkText}" (${url}) at ${timestamp}.`);
 
-            // 2. Ask for confirmation to visit the link
-            if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url}?`)) {
+            // 1. Ask for confirmation to visit the link
+            if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url} now?`)) {
+                logMessage += ` User chose to visit immediately. Navigating...`;
+                console.log(`User chose to visit "${linkText}" immediately.`);
+
+                // Display log on the page BEFORE navigating
+                const logEntry = document.createElement('p');
+                logEntry.classList.add('log-entry');
+                logEntry.textContent = logMessage;
+                clickLogElement.insertBefore(logEntry, clickLogElement.firstChild);
+
                 window.location.href = url; // Navigate to the URL
             } else {
-                console.log("User chose not to visit the link.");
+                // User chose not to visit immediately
+                logMessage += ` User chose NOT to visit immediately.`;
+                console.log(`User chose not to visit "${linkText}" immediately.`);
+
+                // 2. Ask if they want to set a time to visit later
+                const visitLaterTimeInput = prompt(`You chose not to visit "${linkText}" now.\nWould you like to set a reminder to visit this link later?\nIf so, please enter a time (e.g., "tomorrow at 10 AM", "next Monday", "in 2 hours"):`);
+
+                if (visitLaterTimeInput && visitLaterTimeInput.trim() !== "") {
+                    const visitLaterTime = visitLaterTimeInput.trim(); // This is your assigned variable
+                    logMessage += ` User wants to visit later at: ${visitLaterTime}. (Conceptual reminder).`;
+                    console.log(`User wants to be reminded to visit "${linkText}" (${url}) at: ${visitLaterTime}`);
+
+                    // For demonstration, we'll alert the user.
+                    // A true reminder system would require browser notifications API or integration
+                    // with a calendar, which is more complex.
+                    alert(`Reminder noted for "${linkText}" for: ${visitLaterTime}.\n(This is a conceptual reminder for this demo and won't actually schedule a system notification.)`);
+                } else {
+                    logMessage += ` User declined to set a later visit time.`;
+                    console.log(`User declined to set a later visit time for "${linkText}".`);
+                }
+
+                // Display the full log on the page if not navigated
+                const logEntry = document.createElement('p');
+                logEntry.classList.add('log-entry');
+                logEntry.textContent = logMessage;
+                clickLogElement.insertBefore(logEntry, clickLogElement.firstChild);
             }
         }
 
         // --- Function to render the links on the page ---
         function renderLinks() {
-            if (links.length === 0) {
-                linkListElement.innerHTML = '<li>No links have been added yet.</li>';
+            if (!links || links.length === 0) {
+                linkListElement.innerHTML = '<li>No links have been added yet. Add some in the script!</li>';
                 return;
             }
 
             links.forEach(link => {
                 const listItem = document.createElement('li');
                 const anchorTag = document.createElement('a');
-                anchorTag.href = link.url; // Set href for semantics, though we preventDefault
+                anchorTag.href = link.url;
                 anchorTag.textContent = link.text;
+                // Pass event, url, and text to the handler
                 anchorTag.addEventListener('click', (event) => handleLinkClick(event, link.url, link.text));
                 listItem.appendChild(anchorTag);
                 linkListElement.appendChild(listItem);
@@ -107,7 +152,13 @@
 
         // --- Initial setup ---
         document.addEventListener('DOMContentLoaded', () => {
-            renderLinks(); // Call the function to display links when the page loads
+            renderLinks();
+            // Add a small note about current date for context with logs
+            const dateNote = document.createElement('p');
+            dateNote.style.fontSize = '0.8em';
+            dateNote.style.color = '#666';
+            dateNote.textContent = `Current date for context: ${new Date().toLocaleDateString()}`;
+            document.body.insertBefore(dateNote, document.getElementById('clickLogContainer'));
         });
     </script>
 
