@@ -124,3 +124,13 @@ h3 {
 #showAddLinkDialogBtn:hover {
     background-color: #218838;
 }
+/* ... existing styles ... */
+
+.schedule-datetime-input {
+    padding: 3px 6px;
+    font-size: 0.85em; /* Match .scheduled-time font-size a bit */
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    /* You might want to adjust width or other properties if needed */
+    /* Example: width: auto; max-width: 200px; */
+}
