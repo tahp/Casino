@@ -10,37 +10,44 @@ let showAddLinkDialogBtn;
 // --- Local Storage Functions ---
 function saveLinksToLocalStorage() {
     try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(links));
-        // console.log("Links saved to Local Storage."); // Optional: for debugging
+        const dataToSave = JSON.stringify(links);
+        console.log("Attempting to save to Local Storage. Data:", dataToSave); // LOG: What's being saved
+        localStorage.setItem(LOCAL_STORAGE_KEY, dataToSave);
+        console.log("Data successfully saved to Local Storage under key:", LOCAL_STORAGE_KEY); // LOG: Confirmation
     } catch (e) {
         console.error("Could not save links to Local Storage:", e);
-        // Potentially alert the user if storage is full or disabled
     }
 }
 
 function getDefaultLinks() {
-    // This is the initial default if nothing is in local storage or loading fails
+    console.log("Using default links."); // LOG: When defaults are used
     return [
-        { text: "Google Search", url: "https://www.google.com", scheduledTime: "Tomorrow AM" },
-        { text: "Wikipedia Encyclopedia", url: "https://www.wikipedia.org" },
-        { text: "Example Domain Info", url: "https://www.example.com" },
-        { text: "Developer Mozilla", url: "https://developer.mozilla.org" }
+        { text: "Google Search (Default)", url: "https://www.google.com", scheduledTime: "Tomorrow AM" },
+        { text: "Wikipedia (Default)", url: "https://www.wikipedia.org" },
     ];
 }
 
 function loadLinksFromLocalStorage() {
+    console.log("Attempting to load links from Local Storage. Key:", LOCAL_STORAGE_KEY); // LOG: Start load
     try {
         const storedLinks = localStorage.getItem(LOCAL_STORAGE_KEY);
+        console.log("Raw data from Local Storage:", storedLinks); // LOG: What was retrieved
         if (storedLinks) {
             const parsedLinks = JSON.parse(storedLinks);
-            // Basic validation to ensure it's an array (could be more thorough)
-            return Array.isArray(parsedLinks) ? parsedLinks : getDefaultLinks();
+            console.log("Parsed links from Local Storage:", parsedLinks); // LOG: Parsed data
+            if (Array.isArray(parsedLinks)) {
+                return parsedLinks;
+            } else {
+                console.warn("Stored data is not an array. Falling back to defaults.");
+                return getDefaultLinks();
+            }
+        } else {
+            console.log("No data found in Local Storage. Falling back to defaults.");
         }
     } catch (e) {
-        console.error("Error parsing links from Local Storage:", e);
-        // Fallback to default links if parsing fails (e.g., corrupted data)
+        console.error("Error parsing links from Local Storage:", e, "Falling back to defaults.");
     }
-    return getDefaultLinks(); // Return default if nothing stored or if there was an error
+    return getDefaultLinks();
 }
 
 
@@ -61,16 +68,22 @@ function logToPage(message) {
 // --- Function to handle link removal ---
 function handleRemoveLink(linkToRemove) {
     if (confirm(`Are you sure you want to remove the link "${linkToRemove.text}"? This cannot be undone.`)) {
+        console.log("handleRemoveLink: Attempting to remove:", JSON.parse(JSON.stringify(linkToRemove))); // LOG: What we want to remove
+        console.log("handleRemoveLink: Current 'links' array before removal:", JSON.parse(JSON.stringify(links))); // LOG: State before
+
         const index = links.findIndex(link => link.url === linkToRemove.url && link.text === linkToRemove.text);
+        console.log("handleRemoveLink: Found index for removal:", index); // LOG: Index found
+
         if (index > -1) {
             links.splice(index, 1);
-            saveLinksToLocalStorage(); // <-- SAVE AFTER MODIFICATION
+            console.log("handleRemoveLink: 'links' array after splice:", JSON.parse(JSON.stringify(links))); // LOG: State after splice
+            saveLinksToLocalStorage(); // Attempt to save the modified array
             renderLinks();
             logToPage(`Link "${linkToRemove.text}" removed.`);
-            console.log(`Link "${linkToRemove.text}" removed.`);
+            console.log(`Link "${linkToRemove.text}" removed from JS array and save attempted.`);
         } else {
-            logToPage(`Error: Could not find link "${linkToRemove.text}" to remove.`);
-            console.error(`Error: Could not find link "${linkToRemove.text}" to remove.`);
+            logToPage(`Error: Could not find link "${linkToRemove.text}" in the array to remove.`);
+            console.error(`Error: Could not find link "${linkToRemove.text}" in the array to remove. Current links:`, JSON.parse(JSON.stringify(links)));
         }
     }
 }
@@ -105,20 +118,23 @@ function handleLinkClick(event, linkObject) {
             if (linkObject.scheduledTime !== visitLaterTime) {
                 linkObject.scheduledTime = visitLaterTime;
                 linksModified = true;
+                console.log("handleLinkClick: Scheduled time updated for", linkObject.text, "to", visitLaterTime); // LOG
             }
             activityMessage += ` Reminder set/updated to: ${visitLaterTime}.`;
-        } else if (visitLaterTimeInput === "") { // User explicitly cleared the input
-            if (linkObject.scheduledTime) { // Only modify if there was a time before
+        } else if (visitLaterTimeInput === "") {
+            if (linkObject.scheduledTime) {
                 delete linkObject.scheduledTime;
                 linksModified = true;
+                console.log("handleLinkClick: Scheduled time cleared for", linkObject.text); // LOG
             }
             activityMessage += ` Reminder cleared.`;
-        } else { // User pressed cancel (prompt returns null)
+        } else {
             activityMessage += ` User declined to set/update a reminder.`;
         }
 
         if (linksModified) {
-            saveLinksToLocalStorage(); // <-- SAVE AFTER MODIFICATION
+            console.log("handleLinkClick: Links modified, calling saveLinksToLocalStorage."); // LOG
+            saveLinksToLocalStorage();
         }
         logToPage(activityMessage);
         renderLinks();
@@ -127,7 +143,11 @@ function handleLinkClick(event, linkObject) {
 
 // --- Function to render the links on the page ---
 function renderLinks() {
-    if (!linkListElement) return;
+    if (!linkListElement) {
+        console.error("renderLinks: linkListElement is not defined!"); // LOG: Error check
+        return;
+    }
+    console.log("renderLinks: Rendering links. Current 'links' array:", JSON.parse(JSON.stringify(links))); // LOG: State at render time
 
     linkListElement.innerHTML = '';
 
@@ -178,6 +198,7 @@ function renderLinks() {
 function setupAddLinkButtonListener() {
     if (showAddLinkDialogBtn) {
         showAddLinkDialogBtn.addEventListener('click', () => {
+            // ... (prompt logic as before)
             const newLinkText = prompt("Enter the text/name for the new link:");
             if (newLinkText === null) return;
             if (newLinkText.trim() === "") {
@@ -204,25 +225,32 @@ function setupAddLinkButtonListener() {
 
             const newLink = { text: newLinkText.trim(), url: cleanUrl };
             links.push(newLink);
-            saveLinksToLocalStorage(); // <-- SAVE AFTER MODIFICATION
+            console.log("setupAddLinkButtonListener: New link pushed. Calling saveLinksToLocalStorage."); // LOG
+            saveLinksToLocalStorage();
             renderLinks();
             logToPage(`New link "${newLink.text}" added.`);
             console.log(`New link "${newLink.text}" (${newLink.url}) added.`);
         });
+    } else {
+        console.error("setupAddLinkButtonListener: showAddLinkDialogBtn not found!"); // LOG: Error check
     }
 }
 
 
 // --- Initial setup when the page loads ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize DOM element variables now that the DOM is ready
+    console.log("DOMContentLoaded: Event fired."); // LOG: DOM Ready
+
     linkListElement = document.getElementById('linkList');
     clickLogElement = document.getElementById('clickLog');
     showAddLinkDialogBtn = document.getElementById('showAddLinkDialogBtn');
 
-    links = loadLinksFromLocalStorage(); // <-- LOAD LINKS FROM LOCAL STORAGE
+    console.log("DOMContentLoaded: DOM elements selected."); // LOG: Elements selected
 
-    renderLinks(); // Display initial links (now from localStorage or default)
-    setupAddLinkButtonListener(); // Setup listener for the add button
-    logToPage("Link manager initialized. Data loaded from Local Storage (if available). Current time: " + new Date().toLocaleTimeString());
+    links = loadLinksFromLocalStorage(); // Load links
+
+    renderLinks();
+    setupAddLinkButtonListener();
+    logToPage("Link manager initialized. Data loaded. Current time: " + new Date().toLocaleTimeString());
+    console.log("DOMContentLoaded: Initialization complete. Initial links array:", JSON.parse(JSON.stringify(links))); // LOG: Final initial state
 });
