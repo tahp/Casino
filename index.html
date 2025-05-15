@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Manager with Reminders</title>
+    <title>Interactive Link Manager</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
+            background-color: #f8f9fa;
+            color: #212529;
+            line-height: 1.6;
         }
-        h1, h3 {
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h3 {
             color: #0056b3;
         }
         #linkList {
@@ -21,27 +27,63 @@
         #linkList li {
             margin-bottom: 12px;
             background-color: #fff;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 12px 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap; /* Important for responsiveness */
+        }
+        .link-text-container {
+            flex-grow: 1; /* Allows it to take available space */
+            margin-right: 10px; /* Space before schedule time or remove button */
+            overflow: hidden; /* Prevents long text from breaking layout badly */
+            text-overflow: ellipsis; /* Show ... for very long link text */
         }
         #linkList a {
             text-decoration: none;
             color: #007bff;
-            font-weight: bold;
+            font-weight: 500; /* Slightly bolder */
             cursor: pointer;
+            word-break: break-all; /* Break long URLs/text if necessary */
         }
         #linkList a:hover {
             text-decoration: underline;
             color: #0056b3;
         }
+        .scheduled-time {
+            font-size: 0.8em;
+            color: #495057;
+            font-style: italic;
+            background-color: #e9ecef;
+            padding: 3px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            margin-right: 10px; /* Space before remove button */
+            flex-shrink: 0; /* Prevent it from shrinking too much */
+        }
+        .remove-btn {
+            padding: 4px 10px;
+            font-size: 0.8em;
+            color: white;
+            background-color: #dc3545; /* Red for remove */
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: auto; /* Pushes button to the far right */
+            flex-shrink: 0; /* Prevent button from shrinking */
+            transition: background-color 0.2s ease-in-out;
+        }
+        .remove-btn:hover {
+            background-color: #c82333;
+        }
         .log-entry {
             font-size: 0.9em;
-            color: #555;
+            color: #333;
             margin-top: 8px;
-            padding: 8px;
-            background-color: #e9ecef;
-            border-left: 3px solid #007bff;
+            padding: 8px 12px;
+            background-color: #eef2f7; /* Lighter blueish tint for logs */
+            border-left: 4px solid #6c757d; /* Neutral log border */
             border-radius: 3px;
         }
         #clickLogContainer {
@@ -52,24 +94,50 @@
         #clickLogContainer h3 {
             margin-top: 0;
         }
+        #addLinkContainer {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #fff; /* Consistent with list items */
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+            text-align: center;
+        }
+        #showAddLinkDialogBtn {
+            padding: 12px 25px;
+            font-size: 1em;
+            color: white;
+            background-color: #28a745; /* Green for add */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        #showAddLinkDialogBtn:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
 <body>
 
-    <h1>My Links</h1>
+    <h1>Interactive Link Manager</h1>
     <ul id="linkList">
         </ul>
 
+    <div id="addLinkContainer">
+        <button id="showAddLinkDialogBtn">Add New Link</button>
+    </div>
+
     <div id="clickLogContainer">
-        <h3>Click Log & Reminders:</h3>
+        <h3>Activity Log:</h3>
         <div id="clickLog">
             </div>
     </div>
 
     <script>
         // --- Configuration: Define your links here ---
+        // Added a scheduledTime to the first link for demonstration
         const links = [
-            { text: "Google Search", url: "https://www.google.com" },
+            { text: "Google Search", url: "https://www.google.com", scheduledTime: "Tomorrow AM" },
             { text: "Wikipedia Encyclopedia", url: "https://www.wikipedia.org" },
             { text: "Example Domain Info", url: "https://www.example.com" },
             { text: "Developer Mozilla", url: "https://developer.mozilla.org" }
@@ -77,88 +145,170 @@
 
         const linkListElement = document.getElementById('linkList');
         const clickLogElement = document.getElementById('clickLog');
+        const showAddLinkDialogBtn = document.getElementById('showAddLinkDialogBtn');
 
-        // --- Function to handle link clicks ---
-        function handleLinkClick(event, url, linkText) {
-            event.preventDefault(); // Prevent the default link navigation
-
+        // --- Helper function to log messages to the page ---
+        function logToPage(message) {
             const now = new Date();
             const timestamp = now.toLocaleString(); // e.g., "5/14/2025, 8:00:00 PM"
-            let logMessage = `Clicked "${linkText}" (${url}) at ${timestamp}.`;
-
-            // Initial console log for the click itself
-            console.log(`User clicked on "${linkText}" (${url}) at ${timestamp}.`);
-
-            // 1. Ask for confirmation to visit the link
-            if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url} now?`)) {
-                logMessage += ` User chose to visit immediately. Navigating...`;
-                console.log(`User chose to visit "${linkText}" immediately.`);
-
-                // Display log on the page BEFORE navigating
-                const logEntry = document.createElement('p');
-                logEntry.classList.add('log-entry');
-                logEntry.textContent = logMessage;
+            const logEntry = document.createElement('p');
+            logEntry.classList.add('log-entry');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            // Prepend to have newest logs on top
+            if (clickLogElement.firstChild) {
                 clickLogElement.insertBefore(logEntry, clickLogElement.firstChild);
-
-                window.location.href = url; // Navigate to the URL
             } else {
-                // User chose not to visit immediately
-                logMessage += ` User chose NOT to visit immediately.`;
+                clickLogElement.appendChild(logEntry);
+            }
+        }
+
+        // --- Function to handle link removal ---
+        function handleRemoveLink(linkToRemove) {
+            if (confirm(`Are you sure you want to remove the link "${linkToRemove.text}"? This cannot be undone.`)) {
+                // Find the index of the link object in the array
+                const index = links.findIndex(link => link.url === linkToRemove.url && link.text === linkToRemove.text);
+                if (index > -1) {
+                    links.splice(index, 1); // Remove the link from the array
+                    renderLinks(); // Re-render the updated list
+                    logToPage(`Link "${linkToRemove.text}" removed.`);
+                    console.log(`Link "${linkToRemove.text}" removed.`);
+                } else {
+                    // This case should ideally not happen if linkToRemove is from the list
+                    logToPage(`Error: Could not find link "${linkToRemove.text}" to remove.`);
+                    console.error(`Error: Could not find link "${linkToRemove.text}" to remove.`);
+                }
+            }
+        }
+
+        // --- Function to handle link clicks (for visiting or scheduling) ---
+        function handleLinkClick(event, linkObject) {
+            event.preventDefault(); // Prevent default navigation
+
+            const url = linkObject.url;
+            const linkText = linkObject.text;
+            let activityMessage = `Clicked "${linkText}" (${url}).`;
+
+            console.log(`User clicked on "${linkText}".`);
+
+            if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url} now?`)) {
+                activityMessage += ` User chose to visit immediately. Navigating...`;
+                logToPage(activityMessage);
+                console.log(`User chose to visit "${linkText}" immediately.`);
+                window.location.href = url; // Navigate
+            } else {
+                activityMessage += ` User chose NOT to visit immediately.`;
                 console.log(`User chose not to visit "${linkText}" immediately.`);
 
-                // 2. Ask if they want to set a time to visit later
-                const visitLaterTimeInput = prompt(`You chose not to visit "${linkText}" now.\nWould you like to set a reminder to visit this link later?\nIf so, please enter a time (e.g., "tomorrow at 10 AM", "next Monday", "in 2 hours"):`);
+                const visitLaterTimeInput = prompt(
+                    `You chose not to visit "${linkText}" now.\nWould you like to set/update a reminder time for this link?\n(Leave blank to clear existing reminder)`,
+                    linkObject.scheduledTime || "" // Pre-fill with existing time or empty
+                );
 
                 if (visitLaterTimeInput && visitLaterTimeInput.trim() !== "") {
-                    const visitLaterTime = visitLaterTimeInput.trim(); // This is your assigned variable
-                    logMessage += ` User wants to visit later at: ${visitLaterTime}. (Conceptual reminder).`;
-                    console.log(`User wants to be reminded to visit "${linkText}" (${url}) at: ${visitLaterTime}`);
-
-                    // For demonstration, we'll alert the user.
-                    // A true reminder system would require browser notifications API or integration
-                    // with a calendar, which is more complex.
-                    alert(`Reminder noted for "${linkText}" for: ${visitLaterTime}.\n(This is a conceptual reminder for this demo and won't actually schedule a system notification.)`);
-                } else {
-                    logMessage += ` User declined to set a later visit time.`;
-                    console.log(`User declined to set a later visit time for "${linkText}".`);
+                    const visitLaterTime = visitLaterTimeInput.trim();
+                    linkObject.scheduledTime = visitLaterTime; // Store/update on the link object
+                    activityMessage += ` Reminder set/updated to: ${visitLaterTime}.`;
+                } else if (visitLaterTimeInput === "") { // User explicitly cleared the input
+                    delete linkObject.scheduledTime; // Remove the scheduled time property
+                    activityMessage += ` Reminder cleared.`;
+                } else { // User pressed cancel (prompt returns null)
+                    activityMessage += ` User declined to set/update a reminder.`;
                 }
-
-                // Display the full log on the page if not navigated
-                const logEntry = document.createElement('p');
-                logEntry.classList.add('log-entry');
-                logEntry.textContent = logMessage;
-                clickLogElement.insertBefore(logEntry, clickLogElement.firstChild);
+                logToPage(activityMessage);
+                renderLinks(); // Re-render the list to show any changes
             }
         }
 
         // --- Function to render the links on the page ---
         function renderLinks() {
+            linkListElement.innerHTML = ''; // Clear the list before re-rendering
+
             if (!links || links.length === 0) {
-                linkListElement.innerHTML = '<li>No links have been added yet. Add some in the script!</li>';
+                const emptyLi = document.createElement('li');
+                emptyLi.textContent = 'No links have been added yet. Click "Add New Link" below!';
+                emptyLi.style.justifyContent = 'center'; // Center the text
+                emptyLi.style.color = '#6c757d'; // Muted color
+                linkListElement.appendChild(emptyLi);
                 return;
             }
 
-            links.forEach(link => {
+            links.forEach(linkObj => {
                 const listItem = document.createElement('li');
+
+                // Container for the link text (allows for better flex behavior)
+                const linkTextContainer = document.createElement('div');
+                linkTextContainer.className = 'link-text-container';
                 const anchorTag = document.createElement('a');
-                anchorTag.href = link.url;
-                anchorTag.textContent = link.text;
-                // Pass event, url, and text to the handler
-                anchorTag.addEventListener('click', (event) => handleLinkClick(event, link.url, link.text));
-                listItem.appendChild(anchorTag);
+                anchorTag.href = linkObj.url;
+                anchorTag.textContent = linkObj.text;
+                anchorTag.title = `Visit ${linkObj.text}`; // Tooltip for accessibility
+                anchorTag.addEventListener('click', (event) => handleLinkClick(event, linkObj));
+                linkTextContainer.appendChild(anchorTag);
+                listItem.appendChild(linkTextContainer);
+
+                // Display scheduledTime if it exists
+                if (linkObj.scheduledTime) {
+                    const scheduleDisplay = document.createElement('span');
+                    scheduleDisplay.className = 'scheduled-time';
+                    scheduleDisplay.textContent = `Visit: ${linkObj.scheduledTime}`;
+                    listItem.appendChild(scheduleDisplay);
+                }
+
+                // Add Remove button
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove';
+                removeButton.className = 'remove-btn';
+                removeButton.title = `Remove link: ${linkObj.text}`; // Tooltip for accessibility
+                removeButton.addEventListener('click', (event) => {
+                    event.stopPropagation(); // Prevent li's click event if any were attached to it
+                    handleRemoveLink(linkObj);
+                });
+                listItem.appendChild(removeButton);
+
                 linkListElement.appendChild(listItem);
             });
         }
 
-        // --- Initial setup ---
+        // --- Event listener for "Add New Link" button ---
+        if (showAddLinkDialogBtn) {
+            showAddLinkDialogBtn.addEventListener('click', () => {
+                const newLinkText = prompt("Enter the text/name for the new link:");
+                if (newLinkText === null) return; // User pressed Cancel
+                if (newLinkText.trim() === "") {
+                    alert("Link text cannot be empty. Link not added.");
+                    return;
+                }
+
+                const newLinkUrl = prompt("Enter the full URL for the new link (e.g., https://www.example.com):");
+                if (newLinkUrl === null) return; // User pressed Cancel
+                if (newLinkUrl.trim() === "") {
+                    alert("Link URL cannot be empty. Link not added.");
+                    return;
+                }
+
+                let cleanUrl = newLinkUrl.trim();
+                // Basic URL validation and auto-prefixing with https://
+                if (!cleanUrl.toLowerCase().startsWith('http://') && !cleanUrl.toLowerCase().startsWith('https://')) {
+                    if (confirm(`The URL doesn't start with http:// or https://. Should we add "https://"?\n\n(Your URL: ${cleanUrl})`)) {
+                        cleanUrl = 'https://' + cleanUrl;
+                    } else {
+                        alert("Invalid URL format. Link not added. Please include http:// or https://.");
+                        return;
+                    }
+                }
+
+                const newLink = { text: newLinkText.trim(), url: cleanUrl };
+                links.push(newLink); // Add the new link object to the array
+                renderLinks(); // Re-render the list
+                logToPage(`New link "${newLink.text}" added.`);
+                console.log(`New link "${newLink.text}" (${newLink.url}) added.`);
+            });
+        }
+
+        // --- Initial setup when the page loads ---
         document.addEventListener('DOMContentLoaded', () => {
-            renderLinks();
-            // Add a small note about current date for context with logs
-            const dateNote = document.createElement('p');
-            dateNote.style.fontSize = '0.8em';
-            dateNote.style.color = '#666';
-            dateNote.textContent = `Current date for context: ${new Date().toLocaleDateString()}`;
-            document.body.insertBefore(dateNote, document.getElementById('clickLogContainer'));
+            renderLinks(); // Display initial links
+            logToPage("Link manager initialized. Current time: " + new Date().toLocaleTimeString());
         });
     </script>
 
