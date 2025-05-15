@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Manager</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        #linkList {
+            list-style: none;
+            padding: 0;
+        }
+        #linkList li {
+            margin-bottom: 10px;
+        }
+        #linkList a {
+            text-decoration: none;
+            color: blue;
+            cursor: pointer;
+        }
+        #linkList a:hover {
+            text-decoration: underline;
+        }
+        .log-entry {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 5px;
+        }
+        #clickLogContainer {
+            margin-top: 30px;
+            border-top: 1px solid #ccc;
+            padding-top: 15px;
+        }
+        #clickLogContainer h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Links</h1>
+    <ul id="linkList">
+        </ul>
+
+    <div id="clickLogContainer">
+        <h3>Click Log:</h3>
+        <div id="clickLog">
+            </div>
+    </div>
+
+    <script>
+        // --- Configuration: Define your links here ---
+        const links = [
+            { text: "Google", url: "https://www.google.com" },
+            { text: "Wikipedia", url: "https://www.wikipedia.org" },
+            { text: "Example Domain", url: "https://www.example.com" }
+            // Add more links here if needed
+        ];
+
+        const linkListElement = document.getElementById('linkList');
+        const clickLogElement = document.getElementById('clickLog');
+
+        // --- Function to handle link clicks ---
+        function handleLinkClick(event, url, linkText) {
+            event.preventDefault(); // Prevent the default link navigation
+
+            // 1. Log when the link was clicked
+            const now = new Date();
+            const timestamp = now.toLocaleString(); // More readable date/time
+            const logMessage = `Clicked on "${linkText}" (${url}) at ${timestamp}`;
+            console.log(logMessage);
+
+            // Display log on the page
+            const logEntry = document.createElement('p');
+            logEntry.classList.add('log-entry');
+            logEntry.textContent = logMessage;
+            clickLogElement.insertBefore(logEntry, clickLogElement.firstChild); // Add to top of log
+
+            // 2. Ask for confirmation to visit the link
+            if (confirm(`You clicked on "${linkText}".\nDo you want to visit ${url}?`)) {
+                window.location.href = url; // Navigate to the URL
+            } else {
+                console.log("User chose not to visit the link.");
+            }
+        }
+
+        // --- Function to render the links on the page ---
+        function renderLinks() {
+            if (links.length === 0) {
+                linkListElement.innerHTML = '<li>No links have been added yet.</li>';
+                return;
+            }
+
+            links.forEach(link => {
+                const listItem = document.createElement('li');
+                const anchorTag = document.createElement('a');
+                anchorTag.href = link.url; // Set href for semantics, though we preventDefault
+                anchorTag.textContent = link.text;
+                anchorTag.addEventListener('click', (event) => handleLinkClick(event, link.url, link.text));
+                listItem.appendChild(anchorTag);
+                linkListElement.appendChild(listItem);
+            });
+        }
+
+        // --- Initial setup ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderLinks(); // Call the function to display links when the page loads
+        });
+    </script>
+
+</body>
+</html>
